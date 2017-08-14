@@ -12,7 +12,7 @@ public class FingerprintDecorator {
 
     private int[] valueArr = new int[26];//指纹值数组
 
-    private List<FingerprintDecorator> neighbors = new LinkedList<>();//相邻指纹的map
+    private Set<FingerprintDecorator> neighbors = new HashSet<>();//相邻指纹的map
 
     public FingerprintDecorator(Fingerprint fingerprint) {
         this.fingerprint = fingerprint;
@@ -47,11 +47,11 @@ public class FingerprintDecorator {
         this.valueArr = valueArr;
     }
 
-    public List<FingerprintDecorator> getNeighbors() {
+    public Set<FingerprintDecorator> getNeighbors() {
         return neighbors;
     }
 
-    public void setNeighbors(List<FingerprintDecorator> neighbors) {
+    public void setNeighbors(Set<FingerprintDecorator> neighbors) {
         this.neighbors = neighbors;
     }
 

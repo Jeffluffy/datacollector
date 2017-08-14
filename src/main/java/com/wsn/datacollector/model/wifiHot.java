@@ -48,7 +48,4 @@ public class wifiHot {
         this.ssid = ssid;
     }
 
-
-
-
 }
