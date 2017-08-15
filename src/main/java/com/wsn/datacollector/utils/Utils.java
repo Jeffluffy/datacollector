@@ -5,6 +5,7 @@ import com.wsn.datacollector.mapper.CorridorIntersectorPointMapper;
 import com.wsn.datacollector.mapper.JunctionMapper;
 import com.wsn.datacollector.mapper.RoomIntersectorPointMapper;
 import com.wsn.datacollector.model.Fingerprint;
+import com.wsn.datacollector.model.FingerprintDecorator;
 import com.wsn.datacollector.model.Position;
 
 import java.io.File;
@@ -168,6 +169,25 @@ public class Utils {
     //2 取出pathList中的一个wifiList，
     //3 循环将wifiList中的每个点之间的步数值计算出来，放到矩阵中：matrix ，matrix的下标就是该点在wifiList中的位置
     //4 如果放入的不是第一条路径
+
+    /**
+     * 计算 1范
+     * @param f1
+     * @param f2
+     * @return
+     */
+    public static int calcNorm1(FingerprintDecorator f1,FingerprintDecorator f2){
+
+        int[] fingerPrintArr1 = f1.getValueArr();
+        int[] fingerPrintArr2 = f1.getValueArr();
+        int length = fingerPrintArr1.length;
+        int norm1 = 0;
+
+        for(int i=0; i<length; i++){
+            norm1 += Math.abs(fingerPrintArr1[i] -fingerPrintArr2[i]);
+        }
+        return norm1;
+    }
 
 
 

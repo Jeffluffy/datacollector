@@ -5,6 +5,7 @@ import com.wsn.datacollector.dao.FootStepDao;
 import com.wsn.datacollector.model.Fingerprint;
 import com.wsn.datacollector.model.FingerprintDecorator;
 import com.wsn.datacollector.model.Path;
+import com.wsn.datacollector.utils.Utils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ import java.util.stream.Stream;
  */
 @Service
 public class FingerprintImplService {
+
+    private static final int THRESHOLD = 30;
 
     @Autowired
     FingerprintDao fingerprintDao;
@@ -46,7 +49,6 @@ public class FingerprintImplService {
                 })
                 .collect(Collectors.groupingBy(fingerprintDecorator->fingerprintDecorator.getPath().toString()));
 
-        //TODO 初始化相同路径上的点之间的Footsetps，放入footstepMap
         //初始化相同路径上的相邻点
         fingerprintDecorators.parallelStream().forEach(fingerprintDecorator -> {
             String key = fingerprintDecorator.getPath()+"-"+(fingerprintDecorator.getPosition()-1);
@@ -80,13 +82,58 @@ public class FingerprintImplService {
         pathIds.forEach(pathId->{
             FingerprintDecorator[] fingerprintsOfOnePath = (FingerprintDecorator[]) grupedFingerprints.get(pathId).parallelStream()
             .sorted(Comparator.comparing(FingerprintDecorator::getPosition)).toArray();
+
             for(FingerprintDecorator f1 : fingerprintsOfOnePath){
                 for(FingerprintDecorator f2 : fingerprintsOfOnePath){
-                    if(f1 == f2) continue;
-                    //TODO
+                    if(f1 == f2) continue;//如果是同一个点
+                    int norm1Value = Utils.calcNorm1(f1,f2); //计算第一范式
+                    if(norm1Value>THRESHOLD) continue;  //如果范式值大于阈值则认为他们不需要合并
+
+                    //合并相似的点
+                    f1.removeNeighbors(f2); //将f1 邻居列表中的f2删除
+
+                    f2.getNeighbors().forEach(neighbor->{
+                        if(neighbor != f1){
+                            f1.addNeighbors(neighbor);  //将f2的邻居点加到f1的邻居列表中
+                            neighbor.addNeighbors(f1); //将f1添加到f2的邻居的邻居列表中
+                            neighbor.removeNeighbors(f2);//将f2的邻居列表中的f1邻居全部删除
+                        }
+                    });
+                    grupedFingerprints.get(pathId).remove(f2); //将这个点从该条路径中删除
                 }
             }
         });
+
+        //合并不同路径上的点
+        pathIds.forEach(pathId1->{
+            pathIds.forEach(pathId2->{
+
+                if(pathId1 == pathId2) return;//跳过相同的路径
+                FingerprintDecorator[] fingerprintsOfOnePath1 = (FingerprintDecorator[]) grupedFingerprints.get(pathId1).parallelStream()
+                        .sorted(Comparator.comparing(FingerprintDecorator::getPosition)).toArray();
+                FingerprintDecorator[] fingerprintsOfOnePath2 = (FingerprintDecorator[]) grupedFingerprints.get(pathId2).parallelStream()
+                        .sorted(Comparator.comparing(FingerprintDecorator::getPosition)).toArray();
+                for(FingerprintDecorator f1 : fingerprintsOfOnePath1){
+                    for(FingerprintDecorator f2 : fingerprintsOfOnePath2){
+                        if(f1 == f2) continue;//如果是同一个点
+                        int norm1Value = Utils.calcNorm1(f1,f2); //计算第一范式
+                        if(norm1Value>THRESHOLD) continue;  //如果范式值大于阈值则认为他们不需要合并
+
+                        //合并相似的点
+                        f1.removeNeighbors(f2); //将f1 邻居列表中的f2删除
+                        f2.getNeighbors().forEach(neighbor->{
+                            if(neighbor != f1){
+                                f1.addNeighbors(neighbor);  //将f2的邻居点加到f1的邻居列表中
+                                neighbor.addNeighbors(f1); //将f1添加到f2的邻居的邻居列表中
+                                neighbor.removeNeighbors(f2);//将f2的邻居列表中的f1邻居全部删除
+                            }
+                        });
+                        grupedFingerprints.get(pathId2).remove(f2); //将这个点从该条路径中删除
+                    }
+                }
+            });
+        });
+
         return null;
     }
 
