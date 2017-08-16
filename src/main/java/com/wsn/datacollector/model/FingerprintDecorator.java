@@ -31,8 +31,20 @@ public class FingerprintDecorator {
         }
     }
 
+    public void updateFingerprintValue(FingerprintDecorator fingerprintDecorator) {
+
+        int[] valArr = fingerprintDecorator.getValueArr();
+        for(int i=0; i<valueArr.length; i++) {
+            valueArr[i] = (valueArr[i] + valArr[i])/2 ;
+        }
+    }
+
     public Fingerprint getFingerprint() {
         return fingerprint;
+    }
+
+    public String getKey() {
+        return getPath()+"-"+getPosition();
     }
 
     public void setFingerprint(Fingerprint fingerprint) {
