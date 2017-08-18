@@ -19,7 +19,7 @@ public class FingerprintDecorator {
         try{
             for(int i=0; i<26; ++i ){
                 Method method = Fingerprint.class.getMethod("getL"+(i+1));
-                Integer value = (Integer) method.invoke(this);
+                Integer value = (Integer) method.invoke(fingerprint);
                 if(value == null){
                     valueArr[i] = 0;
                 }else{
@@ -27,6 +27,7 @@ public class FingerprintDecorator {
                 }
             }
         }catch (Exception e){
+            System.out.println("e.message:" + e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
     }

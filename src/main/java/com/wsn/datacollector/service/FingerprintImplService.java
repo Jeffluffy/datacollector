@@ -23,13 +23,12 @@ public class FingerprintImplService {
     @Autowired
     FingerprintDao fingerprintDao;
 
-    @Autowired
-    FootStepDao footStepDao;
-
     public double[][] getMatrix(){
 
+        //从数据库读取指纹数据
         List<Fingerprint> fingerprints = fingerprintDao.findAll();
 
+        //建立两个指纹对象的管理容器，一个Map方便存取，一个List方便遍历
         Map<String,FingerprintDecorator> fingerprintDecoratorMap = new HashMap<>(fingerprints.size());
         List<FingerprintDecorator> fingerprintDecorators = new LinkedList<>();
 
@@ -61,12 +60,9 @@ public class FingerprintImplService {
             }
         });
 
-        //初始化带权边管理的Map ：key：key1_key2 , value: weight
+        //初始化带权边管理的Map ：key：key1_key2 , value: weight，目前默认为1
         fingerprintDecorators.parallelStream().forEach(fingerprintDecorator -> {
-
             String key1 = fingerprintDecorator.getKey();
-            footstepMap.put( key1,new Double(1L));
-
             fingerprintDecorator.getNeighbors().forEach(neighbor -> {
                 String key2 = neighbor.getKey();
                 footstepMap.put(key1+"_"+key2,new Double(1L));
@@ -76,19 +72,21 @@ public class FingerprintImplService {
 
         //合并相同路径上的相似点
         Set<String> pathIds = grupedFingerprints.keySet();
-        pathIds.forEach(pathId->{
-            FingerprintDecorator[] fingerprintsOfOnePath = (FingerprintDecorator[]) grupedFingerprints.get(pathId).parallelStream()
-            .sorted(Comparator.comparing(FingerprintDecorator::getPosition)).toArray();
-
-            for(int i=0; i<fingerprintsOfOnePath.length; ++i){
-                FingerprintDecorator f1 = fingerprintsOfOnePath[i];
-                for(int j=i+1; j<fingerprintsOfOnePath.length; ++j){
-                    FingerprintDecorator f2 = fingerprintsOfOnePath[j];
-                    if(f1 == f2) continue;//如果是同一个点
+        Iterator<String> iterator = pathIds.iterator();
+        while (iterator.hasNext()){
+            String pathId = iterator.next();
+            List<FingerprintDecorator> fingerprintsOfOnePath = grupedFingerprints.get(pathId);
+            fingerprintsOfOnePath.parallelStream().sorted(Comparator.comparing(FingerprintDecorator::getPosition));
+            for(int i=0; i<fingerprintsOfOnePath.size(); ++i){
+                FingerprintDecorator f1 = fingerprintsOfOnePath.get(i);
+                for(int j=i+1; j<fingerprintsOfOnePath.size(); ++j){
+                    FingerprintDecorator f2 = fingerprintsOfOnePath.get(j);
+                    if(f1 == f2) continue;//如果是同一个点，跳过
                     int norm1Value = Utils.calcNorm1(f1,f2); //计算第一范式
                     if(norm1Value>THRESHOLD) continue;  //如果范式值大于阈值则认为他们不需要合并
                     //合并相似的点
                     f1.removeNeighbors(f2); //将f1 邻居列表中的f2删除
+                    fingerprintDecorators.remove(f2);
                     footstepMap.remove(f1.getKey()+"_"+f2.getKey());
                     footstepMap.remove(f2.getKey()+"_"+f1.getKey());
 
@@ -108,26 +106,32 @@ public class FingerprintImplService {
                     grupedFingerprints.get(pathId).remove(f2); //将这个点从该条路径中删除
                 }
             }
-        });
-
+        }
         //合并不同路径上的点
-        pathIds.forEach(pathId1->{
-            pathIds.forEach(pathId2->{
+        Iterator<String> iterator1 = pathIds.iterator();
+        Iterator<String> iterator2 = pathIds.iterator();
+        while (iterator1.hasNext()){
 
-                if(pathId1 == pathId2) return;//跳过相同的路径,上一步已经处理过相同路径上的点了
-                FingerprintDecorator[] fingerprintsOfOnePath1 = (FingerprintDecorator[]) grupedFingerprints.get(pathId1).parallelStream()
-                        .sorted(Comparator.comparing(FingerprintDecorator::getPosition)).toArray();
-                FingerprintDecorator[] fingerprintsOfOnePath2 = (FingerprintDecorator[]) grupedFingerprints.get(pathId2).parallelStream()
-                        .sorted(Comparator.comparing(FingerprintDecorator::getPosition)).toArray();
-                for(int i=0; i<fingerprintsOfOnePath1.length; ++i) {
-                    FingerprintDecorator f1 = fingerprintsOfOnePath1[i];
-                    for (int j = 0; j < fingerprintsOfOnePath2.length; ++j) {
-                        FingerprintDecorator f2 = fingerprintsOfOnePath2[j];
+            String pathId1 = iterator1.next();
+            while (iterator2.hasNext()){
+
+                String pathId2 = iterator2.next();
+                if(pathId1.equals(pathId2)) continue;//跳过相同的路径,上一步已经处理过相同路径上的点了
+
+                List<FingerprintDecorator> fingerprintsOfOnePath1 = grupedFingerprints.get(pathId1);
+                fingerprintsOfOnePath1.parallelStream().sorted(Comparator.comparing(FingerprintDecorator::getPosition));
+                List<FingerprintDecorator> fingerprintsOfOnePath2 = grupedFingerprints.get(pathId1);
+                fingerprintsOfOnePath2.parallelStream().sorted(Comparator.comparing(FingerprintDecorator::getPosition));
+                for(int i=0; i<fingerprintsOfOnePath1.size(); ++i) {
+                    FingerprintDecorator f1 = fingerprintsOfOnePath1.get(i);
+                    for (int j = 0; j < fingerprintsOfOnePath2.size(); ++j) {
+                        FingerprintDecorator f2 = fingerprintsOfOnePath2.get(j);
                         if (f1 == f2) continue;//如果是同一个点
                         int norm1Value = Utils.calcNorm1(f1, f2); //计算第一范式
                         if (norm1Value > THRESHOLD) continue;  //如果范式值大于阈值则认为他们不需要合并
                         //合并相似的点
                         f1.removeNeighbors(f2); //将f1 邻居列表中的f2删除
+                        fingerprintDecorators.remove(f2);
                         f2.getNeighbors().forEach(neighbor -> {
                             if (neighbor != f1) {
                                 f1.addNeighbors(neighbor);  //将f2的邻居点加到f1的邻居列表中
@@ -144,8 +148,10 @@ public class FingerprintImplService {
                         grupedFingerprints.get(pathId2).remove(f2); //将这个点从该条路径中删除
                     }
                 }
-            });
-        });
+
+            }
+
+        }
 
         //构建二维矩阵
         int length = fingerprintDecorators.size();
@@ -154,18 +160,29 @@ public class FingerprintImplService {
         for(int i=0; i<length; i++) {
             FingerprintDecorator fI = fingerprintDecorators.get(i);
             for(int j=i; j<length; j++) {
-                FingerprintDecorator fj = fingerprintDecorators.get(i);
-                biMatrix[i][j] = footstepMap.get(fI.getKey()+"_"+ fj.getKey());
+                //TODO 此处报了空指针异常，待处理，~~~~(>_<)~~~~
+                FingerprintDecorator fJ = fingerprintDecorators.get(i);
+                biMatrix[i][j] = footstepMap.get(fI.getKey()+"_"+ fJ.getKey());
                 biMatrix[j][i] = biMatrix[i][j];
             }
         }
-
+        printMatrix(biMatrix);
         return biMatrix;
     }
 
     public static void main(String[] args){
         Integer integer = new Integer("");
         System.out.println(integer);
+    }
+
+    public static void printMatrix(double[][] matrix) {
+
+        int length = matrix.length;
+        for(int i=0; i<length; ++i) {
+            for(int j=0; j<length; ++j)
+                System.out.print(matrix[i][j] + " ,");
+            System.out.println();
+        }
     }
 
 }

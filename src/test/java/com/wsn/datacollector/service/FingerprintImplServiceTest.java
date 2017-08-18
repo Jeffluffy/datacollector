@@ -20,7 +20,8 @@ public class FingerprintImplServiceTest {
     FingerprintImplService fingerprintImplService;
 
     @Test
-    public void getPathList() throws Exception {
-        fingerprintImplService.getPathList();
+    public void getMatrix() throws Exception {
+        fingerprintImplService.getMatrix();
     }
+
 }
