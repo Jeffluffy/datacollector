@@ -179,12 +179,12 @@ public class Utils {
     public static int calcNorm1(FingerprintDecorator f1,FingerprintDecorator f2){
 
         int[] fingerPrintArr1 = f1.getValueArr();
-        int[] fingerPrintArr2 = f1.getValueArr();
+        int[] fingerPrintArr2 = f2.getValueArr();
         int length = fingerPrintArr1.length;
         int norm1 = 0;
 
         for(int i=0; i<length; i++){
-            norm1 += Math.abs(fingerPrintArr1[i] -fingerPrintArr2[i]);
+            norm1 += Math.abs(fingerPrintArr1[i] - fingerPrintArr2[i]);
         }
         return norm1;
     }

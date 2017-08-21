@@ -107,4 +107,27 @@ public class FingerprintDecorator {
     }
 
     //TODO get set methods
+
+
+    @Override
+    public String toString() {
+        return "{" +
+                getKey()+ " neighbors:"+ printNeighbors()+
+                '}';
+    }
+
+    public String printNeighbors() {
+        StringBuffer stringBuffer = new StringBuffer();
+        neighbors.forEach(neighbor->stringBuffer.append(neighbor.getKey()+", "));
+        return stringBuffer.toString();
+    }
+
+    public String printFingerprint(){
+        StringBuffer stringBuffer = new StringBuffer();
+        stringBuffer.append("[ ");
+        for(int i=0;i<valueArr.length;++i)
+            stringBuffer.append(valueArr[i]+", ");
+        stringBuffer.append("]");
+        return stringBuffer.toString();
+    }
 }
