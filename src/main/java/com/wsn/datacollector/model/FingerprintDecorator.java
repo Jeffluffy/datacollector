@@ -112,7 +112,8 @@ public class FingerprintDecorator {
     @Override
     public String toString() {
         return "{" +
-                getKey()+ " neighbors:"+ printNeighbors()+
+                "id:"+ getId()+
+                "  key:"+getKey()+ "  neighbors:"+ printNeighbors()+
                 '}';
     }
 

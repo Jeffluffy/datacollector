@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 public class FingerprintImplService {
 
     private static final int THRESHOLD = 30;
-    private static volatile int numOfWeights = 0;
     private static BufferedWriter writer = null;
 
     {
@@ -50,7 +49,8 @@ public class FingerprintImplService {
 
         out("1 从数据库中读取数据：=============================================");
         //从数据库读取指纹数据
-        List<Fingerprint> fingerprints = fingerprintDao.findAll();
+        List<Fingerprint> fingerprints = fingerprintDao.findAll().stream().filter(fingerprint -> fingerprint.getId()<50).collect(Collectors.toList());
+//        List<Fingerprint> fingerprints = fingerprintDao.findAll().stream().filter(fingerprint -> fingerprint.getId()>49).collect(Collectors.toList());
         out("      共读取数据："+fingerprints.size());
         //建立两个指纹对象的管理容器，一个Map方便查找，一个List方便遍历
         Map<String,FingerprintDecorator> fingerprintDecoratorMap = new HashMap<>(fingerprints.size());
@@ -95,12 +95,10 @@ public class FingerprintImplService {
         fingerprintDecorators.stream().forEach(fingerprintDecorator -> {
             String key1 = fingerprintDecorator.getKey();
             footstepMap.put(key1+"_"+key1,new Double(0L));
-            numOfWeights+=2;
             fingerprintDecorator.getNeighbors().forEach(neighbor -> {
                 String key2 = neighbor.getKey();
                 footstepMap.put(key1+"_"+key2,new Double(1L));
                 footstepMap.put(key2+"_"+key1,new Double(1L));
-                numOfWeights+=2;
             });
         });
 
@@ -129,10 +127,11 @@ public class FingerprintImplService {
                     //将f2从容器中删除
                     fingerprintDecorators.remove(f2);
                     fingerprintDecoratorMap.remove(f2.getKey());
+
                     //删除f1 f2 之间对应的边
                     footstepMap.remove(f1.getKey()+"_"+f2.getKey());
                     footstepMap.remove(f2.getKey()+"_"+f1.getKey());
-                    numOfWeights-=2;
+
                     //修改邻居列表
                     Iterator<FingerprintDecorator> iterator1 =f2.getNeighbors().iterator();
                     while (iterator1.hasNext()){
@@ -143,12 +142,10 @@ public class FingerprintImplService {
                             iterator1.remove();
                             footstepMap.remove(f2.getKey()+"_"+neighbor.getKey());
                             footstepMap.remove(neighbor.getKey()+"_"+f2.getKey());
-                            numOfWeights-=2;
                             neighbor.addNeighbors(f1); //将f1添加到f2的邻居的邻居列表中
                             f1.addNeighbors(neighbor);  //将f2的邻居点加到f1的邻居列表中
                             footstepMap.put(f1.getKey()+"_"+neighbor.getKey(),new Double(1));
                             footstepMap.put(neighbor.getKey()+"_"+f1.getKey(),new Double(1));
-                            numOfWeights+=2;
                         }
                     }
                     f1.updateFingerprintValue(f2); //更新指纹值
@@ -163,28 +160,28 @@ public class FingerprintImplService {
         out("6 合并不同路径上的点");
         //合并不同路径上的点
         Iterator<String> iterator1 = pathIds.iterator();
-        Iterator<String> iterator2 = pathIds.iterator();
-        while (iterator1.hasNext()){
 
+        while (iterator1.hasNext()){
             String pathId1 = iterator1.next();
+            Iterator<String> iterator2 = pathIds.iterator();
             while (iterator2.hasNext()){
 
                 String pathId2 = iterator2.next();
                 if(pathId1.equals(pathId2)) continue;//跳过相同的路径,上一步已经处理过相同路径上的点了
 
-                List<FingerprintDecorator> fingerprintsOfOnePath = grupedFingerprints.get(pathId1);
-                fingerprintsOfOnePath.stream().sorted(Comparator.comparing(FingerprintDecorator::getPosition));
-                List<FingerprintDecorator> fingerprintsOfOnePath2 = grupedFingerprints.get(pathId1);
+                List<FingerprintDecorator> fingerprintsOfOnePath1 = grupedFingerprints.get(pathId1);
+                fingerprintsOfOnePath1.stream().sorted(Comparator.comparing(FingerprintDecorator::getPosition));
+                List<FingerprintDecorator> fingerprintsOfOnePath2 = grupedFingerprints.get(pathId2);/////////////////////////////////////////
                 fingerprintsOfOnePath2.stream().sorted(Comparator.comparing(FingerprintDecorator::getPosition));
-                for(int i=0; i<fingerprintsOfOnePath.size(); ++i) {
-                    FingerprintDecorator f1 = fingerprintsOfOnePath.get(i);
+                for(int i=0; i<fingerprintsOfOnePath1.size(); ++i) {
+                    FingerprintDecorator f1 = fingerprintsOfOnePath1.get(i);
                     for (int j = 0; j < fingerprintsOfOnePath2.size(); ++j) {
                         FingerprintDecorator f2 = fingerprintsOfOnePath2.get(j);
-                        if (f1 == f2) continue;//如果是同一个点
                         int norm1Value = Utils.calcNorm1(f1, f2); //计算第一范式
+                        out(f1.toString()+"   "+f2.toString()  + "范数：" + norm1Value +"是否合并："+(norm1Value<30?"==========================是========":"否"));
+                        if (f1 == f2) continue;//如果是同一个点
                         if (norm1Value > THRESHOLD) continue;  //如果范式值大于阈值则认为他们不需要合并
                         //合并相似的点
-                        out("合并相似点: f1: "+f1+"   f2: "+f2+" 相似度(1范):" +norm1Value +"<"+THRESHOLD);
                         f1.removeNeighbors(f2); //将f1 邻居列表中的f2删除
                         //将f2从容器中删除
                         fingerprintDecorators.remove(f2);
@@ -192,7 +189,6 @@ public class FingerprintImplService {
                         //删除f1 f2 之间对应的边
                         footstepMap.remove(f1.getKey()+"_"+f2.getKey());
                         footstepMap.remove(f2.getKey()+"_"+f1.getKey());
-                        numOfWeights-=2;
                         //修改邻居列表
                         Iterator<FingerprintDecorator> iterator3 =f2.getNeighbors().iterator();
                         while (iterator3.hasNext()){
@@ -203,13 +199,11 @@ public class FingerprintImplService {
                                 iterator3.remove();
                                 footstepMap.remove(f2.getKey()+"_"+neighbor.getKey());
                                 footstepMap.remove(neighbor.getKey()+"_"+f2.getKey());
-                                numOfWeights -= 2;
 
                                 neighbor.addNeighbors(f1); //将f1添加到f2的邻居的邻居列表中
                                 f1.addNeighbors(neighbor);  //将f2的邻居点加到f1的邻居列表中
                                 footstepMap.put(f1.getKey()+"_"+neighbor.getKey(),new Double(1));
                                 footstepMap.put(neighbor.getKey()+"_"+f1.getKey(),new Double(1));
-                                numOfWeights += 2;
                             }
                         }
                         f1.updateFingerprintValue(f2); //更新指纹值
@@ -224,17 +218,19 @@ public class FingerprintImplService {
         //构建二维矩阵
         int length = fingerprintDecorators.size();
         double[][] biMatrix = new double[length][length];
-        int num = 0;
+        int[]idList = new int[length];
+
         for(int i=0; i<length; i++) {
             FingerprintDecorator fI = fingerprintDecorators.get(i);
+            idList[i] = fI.getId();
             for(int j=0; j<length; j++) {
                 FingerprintDecorator fJ = fingerprintDecorators.get(j);
                 String key = fI.getKey() + "_" + fJ.getKey();
                 Double value = footstepMap.get(key);
                 System.out.println("( "+i+" ,"+j+" )"+"获取边：" + key + ""+ (value!=null?"有":"无"));
-                double val = 2.2;
+//                double val = Double.MAX_VALUE;
+                double val = 9.9;
                 if(value != null){
-                    num += 1;
                     val = value;
                 }
                 biMatrix[i][j] = val;
@@ -242,8 +238,7 @@ public class FingerprintImplService {
             }
         }
 
-        printMatrix(biMatrix);
-        System.out.println("总边数："+ num+ " ,  应有边数："+ numOfWeights);
+        printWeightMatrix(biMatrix,idList);
         writer.close();
         return null;
 //        return biMatrix;
@@ -254,13 +249,19 @@ public class FingerprintImplService {
         System.out.println(integer);
     }
 
-    public static void printMatrix(double[][] matrix) {
+    public static void printWeightMatrix(double[][] matrix,int[] idList) {
 
         int length = matrix.length;
+        System.out.println("打印矩阵,9.9表示不连通:");
+        out("打印矩阵,9.9表示不连通");
         for(int i=0; i<length; ++i) {
-            for(int j=0; j<length; ++j)
+            StringBuilder stringBuilder = new StringBuilder(idList[i] +":");
+            for(int j=0; j<length; ++j){
                 System.out.print(matrix[i][j] + " ,");
+                stringBuilder.append(matrix[i][j] + " ,");
+            }
             System.out.println();
+            out(stringBuilder.toString());
         }
     }
 
