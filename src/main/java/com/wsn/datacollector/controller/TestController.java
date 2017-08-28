@@ -3,12 +3,10 @@ package com.wsn.datacollector.controller;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.wsn.datacollector.dao.FingerprintDao;
+import com.wsn.datacollector.dao.FootStepDao;
 import com.wsn.datacollector.dao.UserDao;
 import com.wsn.datacollector.dao.WifiLocationDao;
-import com.wsn.datacollector.model.Fingerprint;
-import com.wsn.datacollector.model.WifiLocation;
-import com.wsn.datacollector.model.wifi;
-import com.wsn.datacollector.model.wifiHot;
+import com.wsn.datacollector.model.*;
 import com.wsn.datacollector.utils.GetPathNumber;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +30,8 @@ public class TestController {
     FingerprintDao fingerprintDao;
     @Autowired
     WifiLocationDao wifiLocationDao;
+    @Autowired
+    FootStepDao footStepDao;
 
     @RequestMapping("/test")
     public String test(){
@@ -74,10 +74,19 @@ public class TestController {
     public String handleRequestWifi (HttpServletRequest request, HttpServletResponse response) throws IOException {
         String s = (String) request.getParameter("wifi_fingerprint");
         String s2 = (String) request.getParameter("time_sequence");
+        String s3 = (String) request.getParameter("foot_step");
         Gson gson = new Gson();
         List<List<wifi>>  tempfingerprint =  gson.fromJson(s, new TypeToken<List<List<wifi>>>(){}.getType());
         List<Long> timeSequence = gson.fromJson(s2, new TypeToken<List<Long>>(){}.getType());
+        double countstep = (double) gson.fromJson(s3,Float.class);
+
         Long pathid =  GetPathNumber.getPathNumber();
+
+        FootStep footStep = new FootStep();
+        footStep.setPath(pathid);
+        footStep.setSteps(countstep/(tempfingerprint.size()-1));
+        footStepDao.save(footStep);
+
         for(int i=0;i<tempfingerprint.size();i++){
             List<wifi> w = tempfingerprint.get(i);
             System.out.println(w.get(0).getBssid()+" ,"+w.get(0).getLevel()+" ,"+w.get(2).getBssid()+" ,"+w.get(3).getLevel());
@@ -141,26 +150,6 @@ public class TestController {
 
             fingerprintDao.save(fingerprint);
         }
-
-      /*  List<wifi> init = fingerprint.get(0);
-        List<WifiLocation> temp = new ArrayList<>();
-        for (wifi w:init){
-            WifiLocation wifiLocation = new WifiLocation();
-            wifiLocation.setBssid(w.getBssid());
-            wifiLocation.setSsid(w.getSsid());
-            temp.add(wifiLocation);
-        }
-        pretreatment.insertWifiLocation(temp);*/
-        /*for (int i=0;i<fingerprint.size();i++){
-            System.out.println("指纹样例:"+i);
-            List<wifi> tempwifi = fingerprint.get(i);
-            StringBuilder stringBuilder = new StringBuilder();
-
-            for(wifi w: tempwifi){
-                stringBuilder.append(w.getSsid()+" "+w.getLevel()+"\r\n");
-            }
-            stringBuilder.append("时间序列"+ timeSequence.get(i));            System.out.print(stringBuilder);
-        }*/
 
         return "success got wifi and time";
     }
